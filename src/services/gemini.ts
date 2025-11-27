@@ -18,6 +18,7 @@ const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 class GeminiService {
     private static instance: GeminiService;
     private genAI: GoogleGenAI;
+    private visionModel: GenerativeModel;
 
     private constructor() {
         if (!API_KEY) {
@@ -364,6 +365,7 @@ class GeminiService {
         count: number = 3
     ): Promise<string[]> {
         const results: string[] = [];
+        // Ensure using the model requested by user for high fidelity
         const model = 'gemini-3-pro-image-preview';
 
         const basePrompt = `
@@ -396,7 +398,7 @@ class GeminiService {
                 const response = await this.genAI.models.generateContent({
                     model: model,
                     contents: { parts: parts },
-                    config: { imageConfig: { aspectRatio: "3:4", imageSize: "1K" } }
+                    config: { imageConfig: { aspectRatio: "3:4", sampleCount: 1 } }
                 });
 
                 // Using our robust extractor
@@ -404,7 +406,7 @@ class GeminiService {
 
             } catch (error) {
                 console.error("Error generating image:", error);
-                throw error;
+                // Continue loop to try generating other variations even if one fails
             }
         }
         return results;
