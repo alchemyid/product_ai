@@ -33,20 +33,8 @@ class GeminiService {
         return GeminiService.instance;
     }
 
-    private getModel(modelName: string = "gemini-2.5-flash") {
-        return this.genAI.getGenerativeModel({
-            model: modelName,
-            safetySettings: [
-                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            ],
-        });
-    }
-
     // ==========================================
-    //  HELPER LOGIC (Ported from Examples)
+    //  HELPER LOGIC
     // ==========================================
 
     private getPosingLogic(category?: ProductCategory): string {
@@ -72,12 +60,28 @@ class GeminiService {
         }
     }
 
+    private extractImage(response: any): string {
+        const part = response.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+        if (part?.inlineData?.data) {
+            return part.inlineData.data;
+        }
+        throw new Error("No image data found in response");
+    }
+
+    private extractText(response: any): string {
+        const part = response.candidates?.[0]?.content?.parts?.find((p: any) => p.text);
+        if (part?.text) {
+            return part.text;
+        }
+        return "";
+    }
+
     // ==========================================
     //  CORE GENERATION METHODS
     // ==========================================
 
     /**
-     * Advanced Model Generation with Prompt Engineering
+     * Advanced Model Generation
      */
     public async generateAdvancedModel(config: ModelGenerationConfig): Promise<string> {
         const posingInstructions = this.getPosingLogic(config.productCategory);
@@ -88,16 +92,13 @@ class GeminiService {
         const hairDesc = config.hairStyle ? ` with ${config.hairStyle} hair` : "";
         const modelAdjectives = "stunning, charismatic, professional model";
 
-        // Construct Subject
         if (config.mode === AppMode.CHARACTER_REFERENCE) {
             subjectDescription = `A Comprehensive 7-Angle Character Reference Sheet of a ${config.gender} ${config.ethnicity} model${hairDesc}. Front, Side, Back, 3/4 views.`;
         } else if (config.objectType === ObjectType.MANNEQUIN) {
             subjectDescription = `A high-end 3D ${config.gender} mannequin. Premium matte finish.`;
         } else {
-            // Human Logic
             subjectDescription = `A ${modelAdjectives}, ${config.ageRange}, ${config.gender}, ${config.ethnicity}${hairDesc}.`;
 
-            // Body Parts Logic
             if (config.mode === AppMode.BODY_PARTS) {
                 if (config.bodyPartType === BodyPartType.HANDS) subjectDescription += " Focus on elegant hands.";
                 if (config.bodyPartType === BodyPartType.LEGS) subjectDescription += " Focus on toned legs and footwear.";
@@ -116,7 +117,6 @@ class GeminiService {
             REQUIREMENTS: Professional, polished, perfect skin texture, commercial standard.
         `;
 
-        // Using gemini-2.5-flash-image specifically for image generation tasks
         const response = await this.genAI.models.generateContent({
             model: 'gemini-2.5-flash-image',
             contents: { parts: [{ text: fullPrompt }] },
@@ -127,11 +127,11 @@ class GeminiService {
     }
 
     /**
-     * Design / Vector Generation with Image Analysis support
+     * FIXED: Design Analysis using correct SDK syntax for parsing text
      */
     public async analyzeImageForDesign(base64Image: string): Promise<string> {
-        // Use standard text model for analysis
-        const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const cleanBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
+
         const prompt = `
             Analyze this image to create a strict text command for generating a VECTOR ART design.
             Extract ANY text visible. Describe the subject, pose, and items.
@@ -140,12 +140,17 @@ class GeminiService {
             Output ONLY the prompt.
         `;
 
-        const cleanBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
-        const result = await model.generateContent([
-            prompt,
-            { inlineData: { mimeType: 'image/png', data: cleanBase64 } }
-        ]);
-        return result.response.text();
+        const response = await this.genAI.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: {
+                parts: [
+                    { text: prompt },
+                    { inlineData: { mimeType: 'image/png', data: cleanBase64 } }
+                ]
+            }
+        });
+
+        return this.extractText(response);
     }
 
     public async generateVectorDesign(params: DesignGenerationParams): Promise<string> {
@@ -205,35 +210,22 @@ class GeminiService {
             }
         };
 
-        // Veo returns an operation that needs polling
         let operation = await this.genAI.models.generateVideos(videoPayload);
 
-        // Polling loop to wait for video completion
         while (!operation.done) {
-            await new Promise(r => setTimeout(r, 5000)); // Wait 5s
+            await new Promise(r => setTimeout(r, 5000));
             operation = await this.genAI.operations.getVideosOperation({ operation });
             console.log("Generating video...", operation.metadata);
         }
 
         if (operation.response?.generatedVideos?.[0]?.video?.uri) {
             const uri = operation.response.generatedVideos[0].video.uri;
-            // Fetch the actual video binary to create a blob URL locally so it plays in the browser
-            // We must append the key to the fetch URL
             const videoRes = await fetch(`${uri}&key=${API_KEY}`);
             const blob = await videoRes.blob();
             return URL.createObjectURL(blob);
         }
 
         throw new Error("Video generation failed or returned no URI.");
-    }
-
-    // Helper to extract image from response
-    private extractImage(response: any): string {
-        const part = response.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
-        if (part?.inlineData?.data) {
-            return part.inlineData.data;
-        }
-        throw new Error("No image data found in response");
     }
 }
 
