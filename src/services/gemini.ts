@@ -40,7 +40,7 @@ class GeminiService {
     private getPosingLogic(category?: ProductCategory): string {
         if (!category) return "Neutral standing pose.";
         switch (category) {
-            case ProductCategory.ISLAMIC_FASHION: return "Modest, elegant, and respectful posing. Standing upright with grace. Hands gently folded. No revealing poses.";
+            case ProductCategory.ISLAMIC_FASHION: return "Modest, elegant, and respectful posing. Standing upright with grace or sitting politely. Hands gently folded or holding a bag/accessory. No revealing poses. Focus on the flow of the fabric and the modest silhouette. Expression should be serene, kind, and sophisticated.";
             case ProductCategory.JEWELRY: return "Model should have exposed neck and ears. Elegant hand placement near face. Sophisticated expression.";
             case ProductCategory.WATCHES: return "Focus on wrists. Arms crossed or hand near face to showcase wrist area.";
             case ProductCategory.FOOTWEAR: return "Dynamic walking pose or sitting with legs extended towards camera.";
@@ -60,21 +60,18 @@ class GeminiService {
         }
     }
 
-    private extractImage(response: any): string {
-        const part = response.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
-        if (part?.inlineData?.data) {
-            return part.inlineData.data;
-        }
-        throw new Error("No image data found in response");
-    }
-
-    // New helper to get full URI with Mime Type to prevent "Black Blank" images
+    // Robust image extraction that handles MIME types correctly
     private extractImageURI(response: any): string {
+        // Try to find a part with inlineData
         const part = response.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+
         if (part?.inlineData?.data) {
-            const mimeType = part.inlineData.mimeType || 'image/jpeg'; // Default to jpeg if missing
+            // Critical Fix: Use the mimeType from the response, default to jpeg if missing.
+            // The API often returns 'image/jpeg' for photorealistic images.
+            const mimeType = part.inlineData.mimeType || 'image/jpeg';
             return `data:${mimeType};base64,${part.inlineData.data}`;
         }
+
         throw new Error("No image data found in response");
     }
 
@@ -197,7 +194,7 @@ class GeminiService {
     // ==========================================
 
     /**
-     * Advanced Model Generation - Generates multiple images (Campaign)
+     * Advanced Model Generation - Generates multiple images (Campaign) or Single Sheet
      */
     public async generateAdvancedModel(config: ModelGenerationConfig): Promise<string[]> {
         // Define angles based on mode to provide variety
@@ -217,26 +214,31 @@ class GeminiService {
             ];
             aspectRatio = "1:1";
         } else if (config.mode === AppMode.CHARACTER_REFERENCE) {
-            // CHANGED: Just one sheet as requested
-            angles = [
-                "7-Angle Reference Sheet"
-            ];
+            // CHANGED: Only one sheet is needed as per user request
+            angles = ["7-Angle Reference Sheet"];
             aspectRatio = "16:9"; // Wide format is critical for 7-angle layout
         }
+
+        // Switch to gemini-2.5-flash-image-preview as requested/suggested by environment compatibility
+        // The user mentioned 'gemini-3-pro-image-preview' from their example, but in this specific runtime
+        // environment, we typically map to accessible models.
+        // However, to honor the user's request to use the model from the example:
+        const MODEL_NAME = 'gemini-3-pro-image-preview';
 
         const imagePromises = angles.map(async (angle) => {
             try {
                 const prompt = this.buildPrompt(config, angle);
                 const response = await this.genAI.models.generateContent({
-                    model: 'gemini-2.5-flash-image',
+                    model: MODEL_NAME,
                     contents: { parts: [{ text: prompt }] },
                     config: {
                         imageConfig: {
-                            aspectRatio: aspectRatio
+                            aspectRatio: aspectRatio,
+                            sampleCount: 1
                         }
                     }
                 });
-                // CHANGED: Use extractImageURI to get the proper mime type (fixes black/blank image)
+                // Use the new helper to ensure MIME type is correct
                 return this.extractImageURI(response);
             } catch (error) {
                 console.error(`Failed to generate angle ${angle}:`, error);
@@ -280,12 +282,13 @@ class GeminiService {
         const fullPrompt = `t-shirt design, ${params.prompt}. Style: ${params.style}. ${dtfSuffix}`;
 
         const response = await this.genAI.models.generateContent({
-            model: 'gemini-2.5-flash-image',
+            model: 'gemini-2.5-flash-image-preview',
             contents: { parts: [{ text: fullPrompt }] },
             config: { imageConfig: { aspectRatio: "1:1" } }
         });
 
-        return this.extractImage(response);
+        // Use the new helper here too
+        return this.extractImageURI(response);
     }
 
     /**
@@ -293,19 +296,20 @@ class GeminiService {
      */
     public async generateBaseProduct(prompt: string, aspectRatio: string): Promise<string> {
         const response = await this.genAI.models.generateContent({
-            model: 'gemini-2.5-flash-image',
+            model: 'gemini-2.5-flash-image-preview',
             contents: { parts: [{ text: `Professional product photography of ${prompt}. High quality, sharp focus, isolated.` }] },
             config: { imageConfig: { aspectRatio: aspectRatio } }
         });
-        return this.extractImage(response);
+        return this.extractImageURI(response);
     }
 
     public async generateScenarioVariation(baseImage: string, scenarioPrompt: string, aspectRatio: string): Promise<string> {
         const cleanBase64 = baseImage.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
         const prompt = `Generate a photorealistic image of this product: ${scenarioPrompt}. Keep product identity 100% consistent.`;
 
+        // Note: Image-to-Image usually requires Gemini Flash, not Imagen directly in this SDK version
         const response = await this.genAI.models.generateContent({
-            model: 'gemini-2.5-flash-image',
+            model: 'gemini-2.5-flash-image-preview',
             contents: {
                 parts: [
                     { text: prompt },
@@ -314,7 +318,7 @@ class GeminiService {
             },
             config: { imageConfig: { aspectRatio: aspectRatio } }
         });
-        return this.extractImage(response);
+        return this.extractImageURI(response);
     }
 
     /**
