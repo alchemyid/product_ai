@@ -27,8 +27,8 @@ const menu: MenuStructure = [
         id: 'content-generator',
         title: 'Content Generator',
         children: [
-            { id: 'image-2-video', title: 'Image 2 Video (Veo)', description: 'Text to Video Generation' }, // Route updated
             { id: 'tshirt-mockup', title: 'T-shirt Mockup' },
+            { id: 'image-2-video', title: 'Image 2 Video (Veo)', description: 'Text to Video Generation' }, // Route updated
             { id: 'ai-stylist', title: 'AI Stylist' },
         ],
     },
