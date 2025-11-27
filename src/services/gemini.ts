@@ -68,6 +68,16 @@ class GeminiService {
         throw new Error("No image data found in response");
     }
 
+    // New helper to get full URI with Mime Type to prevent "Black Blank" images
+    private extractImageURI(response: any): string {
+        const part = response.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+        if (part?.inlineData?.data) {
+            const mimeType = part.inlineData.mimeType || 'image/jpeg'; // Default to jpeg if missing
+            return `data:${mimeType};base64,${part.inlineData.data}`;
+        }
+        throw new Error("No image data found in response");
+    }
+
     private extractText(response: any): string {
         const part = response.candidates?.[0]?.content?.parts?.find((p: any) => p.text);
         if (part?.text) {
@@ -76,58 +86,170 @@ class GeminiService {
         return "";
     }
 
+    private buildPrompt(config: ModelGenerationConfig, angle: string): string {
+        const posingInstructions = this.getPosingLogic(config.productCategory);
+        const vibeInstructions = this.getVibeLogic(config.brandVibe);
+        const technicalSpecs = "Masterpiece, best quality, 8k resolution, photorealistic, shot on Phase One XF IQ4 150MP. The image must be aesthetically pleasing, beautiful, and highly detailed. Professional commercial photography, magazine cover quality, sharp focus, perfect skin texture.";
+
+        let subjectDescription = "";
+        // Logic for Hair vs Headwear (Islamic Fashion Override)
+        let hairDesc = config.hairStyle ? ` with ${config.hairStyle} hair style` : " with professionally styled hair";
+        let outfitDesc = "";
+
+        if (config.productCategory === ProductCategory.ISLAMIC_FASHION) {
+            if (config.gender === Gender.FEMALE) {
+                hairDesc = " wearing a beautiful, stylish, high-quality Hijab (headscarf)";
+                outfitDesc = "She is wearing a fashionable, modest Gamis or Abaya dress with modern layering. The outfit is elegant and covers the aurat appropriately for high fashion.";
+            } else if (config.gender === Gender.MALE) {
+                hairDesc = " wearing a stylish Peci (Kopiah/Cap) and neat grooming";
+                outfitDesc = "He is wearing a modern Baju Koko or Kurta shirt. Modest Islamic men's fashion.";
+            }
+        }
+
+        const modelAdjectives = "stunning, charismatic, world-class professional model";
+        const userCustomEmphasis = config.customPrompt
+            ? `IMPORTANT USER SPECIFIC REQUIREMENT: ${config.customPrompt}. Ensure this specific instruction is prioritized and integrated into the final image.`
+            : "";
+
+        // --- MODE SPECIFIC LOGIC ---
+        if (config.mode === AppMode.CHARACTER_REFERENCE) {
+            const ethnicity = config.ethnicity || "International";
+            const gender = config.gender || "Female";
+            const age = config.ageRange || "Young Adult";
+
+            return `
+            Create a Comprehensive 7-Angle Professional Character Reference Sheet (Face Collage).
+            
+            SUBJECT: A ${modelAdjectives}, ${age}, ${gender}, ${ethnicity}${hairDesc}.
+            
+            COMPOSITION: A clean grid or collage showing the SAME person's face from 7 distinct angles for 3D modeling and AI consistency training:
+            1. Front View (Direct eye contact)
+            2. Right Profile (Side View 90°)
+            3. Left Profile (Side View 90°)
+            4. Right 3/4 View
+            5. Left 3/4 View
+            6. High Angle View (From above)
+            7. Low Angle View (From below)
+            
+            DETAILS: 
+            - CRITICAL: The face structure, skin texture, and features MUST be identical across all views.
+            - Neutral to slightly pleasant expression.
+            - Makeup should be natural and polished (unless specified otherwise).
+            - Lighting: Flat, even, high-quality studio lighting (Butterfly lighting) to show facial geography clearly without harsh shadows.
+            - Background: Solid White or Light Grey (Clean studio background).
+            - Style: Professional Model Agency Composite Card / 3D Texture Reference.
+            
+            ${outfitDesc ? `OUTFIT: ${outfitDesc}` : "OUTFIT: Simple black or white crew neck t-shirt/tank top to keep focus on the face."}
+            
+            TECHNICAL: ${technicalSpecs}
+            
+            ${userCustomEmphasis}
+            `;
+        } else if (config.mode === AppMode.FULL_BODY) {
+            if (config.objectType === ObjectType.MANNEQUIN) {
+                subjectDescription = `A high-end, realistic 3D ${config.gender} mannequin. Material: Premium matte finish suitable for ${config.productCategory}. Sculpted to perfection.`;
+            } else {
+                subjectDescription = `A ${modelAdjectives}, ${config.ageRange}, ${config.gender}, ${config.ethnicity} ethnicity${hairDesc}. The model has a symmetrical face and an aesthetically pleasing physique suitable for high-fashion. ${outfitDesc}`;
+            }
+        } else {
+            // Body Parts specific prompts
+            switch (config.bodyPartType) {
+                case BodyPartType.HEAD_FACE:
+                    subjectDescription = `Close-up beauty portrait of a ${modelAdjectives} (${config.ethnicity}, ${config.gender}, ${config.ageRange})${hairDesc}. Focus on flawless skin and captivating eyes. ${config.productCategory === ProductCategory.ISLAMIC_FASHION ? 'Emphasis on the styling of the Hijab/Peci and facial beauty.' : ''}`;
+                    break;
+                case BodyPartType.HANDS:
+                    subjectDescription = `Macro beauty shot of elegant hands of a ${config.ethnicity} ${config.gender} professional model. Fingers are long and graceful, skin is smooth.`;
+                    break;
+                case BodyPartType.LEGS:
+                    subjectDescription = `Lower body fashion shot focusing on legs/feet of a ${config.ethnicity} ${config.gender} professional model. Legs are toned and skin is flawless.`;
+                    break;
+                default:
+                    subjectDescription = `Cropped artistic fashion shot of a ${config.ethnicity} ${config.gender} professional model${hairDesc}. ${outfitDesc}`;
+            }
+        }
+
+        // Construct the final narrative for Normal Modes
+        return `
+            Create a professional e-commerce product photography asset.
+            
+            SUBJECT: ${subjectDescription}
+            CONTEXT: The model is posing to sell products in this category: ${config.productCategory}.
+            POSING INSTRUCTIONS: ${posingInstructions}
+            ANGLE/COMPOSITION: ${angle}.
+            
+            ATMOSPHERE & VIBE: ${vibeInstructions}
+            ENVIRONMENT: ${config.environment || 'Consistent with the Vibe'}.
+            
+            TECHNICAL: ${technicalSpecs}
+            
+            ${userCustomEmphasis}
+
+            IMPORTANT GUIDELINES:
+            1. AESTHETICS: The model MUST look professional, attractive, and polished. No imperfections.
+            2. CLOTHING: The model should wear neutral, non-distracting clothing (unless specified in USER SPECIFIC REQUIREMENT or Category) to allow for product context.
+            3. LIGHTING: The lighting should perfectly illuminate the areas where a product would be placed.
+            4. FOCUS: Ensure the subject is the absolute focus of the image.
+        `;
+    }
+
     // ==========================================
     //  CORE GENERATION METHODS
     // ==========================================
 
     /**
-     * Advanced Model Generation
+     * Advanced Model Generation - Generates multiple images (Campaign)
      */
-    public async generateAdvancedModel(config: ModelGenerationConfig): Promise<string> {
-        const posingInstructions = this.getPosingLogic(config.productCategory);
-        const vibeInstructions = this.getVibeLogic(config.brandVibe);
-        const technicalSpecs = "Masterpiece, best quality, 8k resolution, photorealistic, shot on Phase One XF IQ4 150MP.";
+    public async generateAdvancedModel(config: ModelGenerationConfig): Promise<string[]> {
+        // Define angles based on mode to provide variety
+        let angles = [
+            "Front facing view, symmetrical, looking at camera",
+            "45-degree side angle view, editorial pose",
+            "Dynamic motion or lifestyle pose, engaging",
+        ];
 
-        let subjectDescription = "";
-        const hairDesc = config.hairStyle ? ` with ${config.hairStyle} hair` : "";
-        const modelAdjectives = "stunning, charismatic, professional model";
+        let aspectRatio = "3:4"; // Default portrait
 
-        if (config.mode === AppMode.CHARACTER_REFERENCE) {
-            subjectDescription = `A Comprehensive 7-Angle Character Reference Sheet of a ${config.gender} ${config.ethnicity} model${hairDesc}. Front, Side, Back, 3/4 views.`;
-        } else if (config.objectType === ObjectType.MANNEQUIN) {
-            subjectDescription = `A high-end 3D ${config.gender} mannequin. Premium matte finish.`;
-        } else {
-            subjectDescription = `A ${modelAdjectives}, ${config.ageRange}, ${config.gender}, ${config.ethnicity}${hairDesc}.`;
-
-            if (config.mode === AppMode.BODY_PARTS) {
-                if (config.bodyPartType === BodyPartType.HANDS) subjectDescription += " Focus on elegant hands.";
-                if (config.bodyPartType === BodyPartType.LEGS) subjectDescription += " Focus on toned legs and footwear.";
-                if (config.bodyPartType === BodyPartType.HEAD_FACE) subjectDescription += " Extreme close-up beauty portrait.";
-            }
+        if (config.mode === AppMode.BODY_PARTS) {
+            angles = [
+                "Detail shot, straight on, perfect symmetry",
+                "Artistic side angle, depth of field",
+                "Contextual lifestyle angle, natural movement"
+            ];
+            aspectRatio = "1:1";
+        } else if (config.mode === AppMode.CHARACTER_REFERENCE) {
+            // CHANGED: Just one sheet as requested
+            angles = [
+                "7-Angle Reference Sheet"
+            ];
+            aspectRatio = "16:9"; // Wide format is critical for 7-angle layout
         }
 
-        const fullPrompt = `
-            Create a professional commercial photography asset.
-            SUBJECT: ${subjectDescription}
-            CONTEXT: Selling ${config.productCategory || 'Fashion'}.
-            POSING: ${posingInstructions}
-            VIBE: ${vibeInstructions}
-            TECHNICAL: ${technicalSpecs}
-            USER NOTE: ${config.customPrompt || ''}
-            REQUIREMENTS: Professional, polished, perfect skin texture, commercial standard.
-        `;
-
-        const response = await this.genAI.models.generateContent({
-            model: 'gemini-2.5-flash-image',
-            contents: { parts: [{ text: fullPrompt }] },
-            config: { imageConfig: { aspectRatio: config.mode === AppMode.CHARACTER_REFERENCE ? "16:9" : "3:4" } }
+        const imagePromises = angles.map(async (angle) => {
+            try {
+                const prompt = this.buildPrompt(config, angle);
+                const response = await this.genAI.models.generateContent({
+                    model: 'gemini-2.5-flash-image',
+                    contents: { parts: [{ text: prompt }] },
+                    config: {
+                        imageConfig: {
+                            aspectRatio: aspectRatio
+                        }
+                    }
+                });
+                // CHANGED: Use extractImageURI to get the proper mime type (fixes black/blank image)
+                return this.extractImageURI(response);
+            } catch (error) {
+                console.error(`Failed to generate angle ${angle}:`, error);
+                return null;
+            }
         });
 
-        return this.extractImage(response);
+        const results = await Promise.all(imagePromises);
+        return results.filter((img): img is string => img !== null);
     }
 
     /**
-     * FIXED: Design Analysis using correct SDK syntax for parsing text
+     * Design Analysis
      */
     public async analyzeImageForDesign(base64Image: string): Promise<string> {
         const cleanBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
