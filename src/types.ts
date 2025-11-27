@@ -7,7 +7,7 @@ export interface MenuItem {
 }
 
 export type MenuStructure = MenuItem[];
-export type AppKey = 'product' | 'model' | 'design' | 'video';
+export type AppKey = 'product' | 'model' | 'design' | 'video' | 'mockup';
 
 // ====== SHARED ENUMS ======
 export enum AspectRatio {
@@ -160,6 +160,45 @@ export interface GenerateVideoParams {
     model: VeoModel;
     aspectRatio: AspectRatio;
     resolution: VideoResolution;
+}
+
+// ====== MOCKUP APP TYPES ======
+export interface Position {
+    x: number;
+    y: number;
+    scale: number;
+    rotation: number;
+}
+
+export interface LayerConfig {
+    image: string | null; // Base64 data
+    position: Position;
+}
+
+export interface ShirtSide {
+    baseImage: string | null;
+    design: LayerConfig;
+    label?: LayerConfig; // Front only usually has label/tag
+}
+export interface MockupAppState {
+    shirtColor: string;
+    front: ShirtSide;
+    back: ShirtSide;
+    faceReference: string | null; // Base64 face image
+    selectedTheme: string;
+    isGenerating: boolean;
+    generatedImages: string[]; // URLs of generated images
+}
+
+export interface ThemeOption {
+    id: string;
+    name: string;
+    promptSuffix: string;
+}
+
+export enum ViewSide {
+    FRONT = 'FRONT',
+    BACK = 'BACK'
 }
 
 // ====== GLOBAL DECLARATIONS ======

@@ -8,7 +8,8 @@ import {
     ObjectType,
     Gender,
     BodyPartType,
-    GenerateVideoParams
+    GenerateVideoParams,
+    ThemeOption
 } from "@/types";
 
 // Access key via import.meta.env for Vite
@@ -352,6 +353,61 @@ class GeminiService {
         }
 
         throw new Error("Video generation failed or returned no URI.");
+    }
+
+    // --- NEW MOCKUP METHOD ---
+    public async generateModelImages(
+        mockupImage: string,
+        faceReference: string | null,
+        theme: ThemeOption,
+        side: 'Front' | 'Back',
+        count: number = 3
+    ): Promise<string[]> {
+        const results: string[] = [];
+        const model = 'gemini-3-pro-image-preview';
+
+        const basePrompt = `
+            Professional fashion photography.
+            Task: Generate a photorealistic image of a fashion model wearing the EXACT t-shirt design shown in the first reference image.
+            
+            Constraint 1 (The Shirt): The t-shirt design, logo placement, and color MUST match the provided mockup image exactly.
+            Constraint 2 (The Model): ${faceReference ? 'The model must have the facial features and likeness of the person in the second reference image.' : 'Use a diverse, professional fashion model.'}
+            Constraint 3 (The Vibe): ${theme.promptSuffix}
+            
+            View: ${side} view of the t-shirt.
+            Angles: Generate a unique angle/pose suitable for an e-commerce product gallery (e.g., straight on, slight turn, close up).
+            Quality: 4k, highly detailed, realistic texture.
+        `;
+
+        for (let i = 0; i < count; i++) {
+            try {
+                const parts: any[] = [
+                    { inlineData: { mimeType: 'image/png', data: this.cleanBase64(mockupImage) } }
+                ];
+
+                if (faceReference) {
+                    parts.push({
+                        inlineData: { mimeType: 'image/jpeg', data: this.cleanBase64(faceReference) }
+                    });
+                }
+
+                parts.push({ text: `${basePrompt} Variation ${i + 1}.` });
+
+                const response = await this.genAI.models.generateContent({
+                    model: model,
+                    contents: { parts: parts },
+                    config: { imageConfig: { aspectRatio: "3:4", imageSize: "1K" } }
+                });
+
+                // Using our robust extractor
+                results.push(this.extractImageURI(response));
+
+            } catch (error) {
+                console.error("Error generating image:", error);
+                throw error;
+            }
+        }
+        return results;
     }
 }
 

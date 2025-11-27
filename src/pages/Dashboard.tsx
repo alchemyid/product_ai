@@ -4,7 +4,8 @@ import Sidebar from '@/components/Sidebar';
 import ProductApp from '@/apps/ProductApp';
 import ModelApp from '@/apps/ModelApp';
 import DesignApp from '@/apps/DesignApp';
-import VideoApp from '@/apps/VideoApp'; // Import new app
+import VideoApp from '@/apps/VideoApp';
+import MockupApp from '@/apps/MockupApp'; // Add import
 import DashboardHomePage from './DashboardHomePage';
 import { MenuStructure } from '@/types';
 import { Construction } from 'lucide-react';
@@ -27,8 +28,8 @@ const menu: MenuStructure = [
         id: 'content-generator',
         title: 'Content Generator',
         children: [
-            { id: 'tshirt-mockup', title: 'T-shirt Mockup' },
-            { id: 'image-2-video', title: 'Image 2 Video (Veo)', description: 'Text to Video Generation' }, // Route updated
+            { id: 'tshirt-mockup', title: 'T-shirt Mockup', description: 'Professional Mockup Generator' }, // Added description
+            { id: 'image-2-video', title: 'Image 2 Video (Veo)', description: 'Text to Video Generation' },
             { id: 'ai-stylist', title: 'AI Stylist' },
         ],
     },
@@ -53,7 +54,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
             case 'fashion-generator': return <ProductApp />;
             case 'model-generator': return <ModelApp />;
             case 'design-generator': return <DesignApp />;
-            case 'image-2-video': return <VideoApp />; // Route to Video App
+            case 'image-2-video': return <VideoApp />;
+            case 'tshirt-mockup': return <MockupApp />; // Add route
             default:
                 const item = menu.flatMap(m => m.children || []).find(c => c.id === activeItem);
                 return <Placeholder title={item?.title || 'Coming Soon'} />;
