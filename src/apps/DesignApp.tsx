@@ -15,7 +15,11 @@ const DesignApp: React.FC = () => {
         setSvgContent(null);
 
         try {
-            const imageB64 = await geminiService.generateVectorDesign(params);
+            const resultUri = await geminiService.generateVectorDesign(params);
+
+            // Fix: Strip prefix if present, as the components expect raw Base64
+            const imageB64 = resultUri.includes('base64,') ? resultUri.split('base64,')[1] : resultUri;
+
             setRasterImage(imageB64);
 
             // Use ImageTracer to convert to SVG
