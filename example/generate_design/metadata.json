@@ -1,0 +1,5 @@
+{
+  "name": "DTF Vector Forge",
+  "description": "A specialized tool for generating vector-style designs optimized for DTF (Direct-to-Film) printing using Gemini AI.",
+  "requestFramePermissions": []
+}

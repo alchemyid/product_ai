@@ -1,0 +1,3 @@
+export const DEFAULT_MODEL_PROMPT = "A full-body photograph of a professional female model for an e-commerce fashion website. She is standing against a clean, light gray studio background. The model has a friendly and approachable expression, looking directly at the camera.";
+export const DEFAULT_NEGATIVE_PROMPT = "ugly, tiling, poorly drawn hands, poorly drawn feet, poorly drawn face, out of frame, extra limbs, disfigured, deformed, body out of frame, blurry, bad anatomy, blurred, watermark, grainy, signature, cut off, draft, cartoon, 3d, illustration";
+export const DEFAULT_MODEL_STYLE = "8k, photorealistic, professional studio lighting, sharp focus, high detail";

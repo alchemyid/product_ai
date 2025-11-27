@@ -1,0 +1,2 @@
+export const DEFAULT_DESIGN_PROMPT = "A fierce, roaring grizzly bear head, stylized for a t-shirt print. The bear should have sharp geometric lines and an aggressive expression. Use a limited color palette of black, white, and one accent color like red or orange.";
+export const DEFAULT_DESIGN_STYLE = "vector art, graphic illustration, minimalist, clean lines, bold shapes, DTF print ready, isolated on a white background";
