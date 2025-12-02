@@ -28,7 +28,7 @@ export const DEFAULT_ANGLES = [
     "Side view - A profile shot from the left or right side.",
     "Top down view - Shot from directly above, also known as a flat lay.",
     "45 degree angle view - A three-quarter perspective, showing the front and one side.",
-    "Close-up detail shot - A macro shot focusing on a specific feature or texture.",
+    "Close up detail shot - A macro shot focusing on a specific feature or texture.",
     "In context lifestyle shot - The product being used in a natural setting.",
     "Floating or suspended shot - Product appears to be floating against a clean background.",
     "Back view - Shows the reverse side of the product.",
