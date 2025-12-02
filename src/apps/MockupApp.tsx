@@ -1,6 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-    Shirt,
     Upload,
     Download,
     Sparkles,
@@ -8,20 +7,14 @@ import {
     Camera,
     Tag,
     RefreshCw,
-    Key,
     User,
-    Move,
-    ZoomIn,
-    RotateCw
 } from 'lucide-react';
-import { AppState as MockupAppState, ViewSide, ShirtSide } from '@/types';
+import { ViewSide, ShirtSide } from '@/types';
 import { DEFAULT_POSITION, PHOTOGRAPHY_THEMES, PRESET_SHIRT_COLORS } from '@/constants/mockup_constants';
 import CanvasPreview, { CanvasHandle } from '@/components/mockup/CanvasPreview';
 import ControlPanel from '@/components/mockup/ControlPanel';
 import LoadingOverlay from '@/components/mockup/LoadingOverlay';
 import geminiService from '@/services/gemini';
-
-// Note: Using MockupAppState interface defined in types.ts but locally initialized state structure.
 
 const MockupApp: React.FC = () => {
     // --- Refs ---
@@ -32,7 +25,6 @@ const MockupApp: React.FC = () => {
     // --- State ---
     const [currentView, setCurrentView] = useState<ViewSide>(ViewSide.FRONT);
 
-    // Simplified local state management for this app
     const [shirtColor, setShirtColor] = useState<string>('#ffffff');
     const [previewBackgroundColor, setPreviewBackgroundColor] = useState<string>('#0f111a');
 
@@ -139,7 +131,7 @@ const MockupApp: React.FC = () => {
 
         } catch (error: any) {
             console.error("Generation failed", error);
-            alert("Failed to generate images. Ensure your API Key has Image Gen access.");
+            alert("Failed to generate images. Ensure your API Key has Image Gen access (Gemini Advanced/Pro).");
             setIsGenerating(false);
         }
     };

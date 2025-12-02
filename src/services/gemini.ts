@@ -39,6 +39,14 @@ class GeminiService {
     //  HELPER LOGIC
     // ==========================================
 
+    // Helper to strip the data:image/png;base64, prefix
+    private cleanBase64(dataUrl: string): string {
+        if (dataUrl.includes(',')) {
+            return dataUrl.split(',')[1];
+        }
+        return dataUrl;
+    }
+    
     private getPosingLogic(category?: ProductCategory): string {
         if (!category) return "Neutral standing pose.";
         switch (category) {
