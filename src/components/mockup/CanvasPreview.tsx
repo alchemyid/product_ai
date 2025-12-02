@@ -30,14 +30,53 @@ const CanvasPreview = forwardRef<CanvasHandle, CanvasPreviewProps>(({ side, shir
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Clear canvas completely (preserve transparency for the container background)
-        ctx.clearRect(0, 0, width, height);
+        let isMounted = true; // Flag to track if the effect is still valid
 
         const loadAndDraw = async () => {
-            // 1. Draw Base Shirt
-            if (side.baseImage) {
-                const shirtImg = await loadImage(side.baseImage);
+            // Enable high quality smoothing
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
 
+            // 1. Prepare Base Shirt
+            let shirtImg: HTMLImageElement | null = null;
+            if (side.baseImage) {
+                try {
+                    shirtImg = await loadImage(side.baseImage);
+                } catch (e) {
+                    console.error("Failed to load base image", e);
+                }
+            }
+
+            // 2. Prepare Design
+            let designImg: HTMLImageElement | null = null;
+            if (side.design.image) {
+                try {
+                    designImg = await loadImage(side.design.image);
+                } catch (e) {
+                    console.error("Failed to load design image", e);
+                }
+            }
+
+            // 3. Prepare Label
+            let labelImg: HTMLImageElement | null = null;
+            if (side.label && side.label.image) {
+                try {
+                    labelImg = await loadImage(side.label.image);
+                } catch (e) {
+                    console.error("Failed to load label image", e);
+                }
+            }
+
+            // --- CRITICAL CHECK ---
+            // If the component unmounted or dependencies changed while we were loading images,
+            // STOP immediately. Do not draw. This prevents the "glitch" where old states overwrite new ones.
+            if (!isMounted) return;
+
+            // --- START DRAWING (Synchronous Block) ---
+            // Only clear and draw if we are sure we are the latest update.
+            ctx.clearRect(0, 0, width, height);
+
+            if (shirtImg) {
                 // Calculate aspect ratio fit
                 const imgAspect = shirtImg.width / shirtImg.height;
                 const canvasAspect = width / height;
@@ -73,26 +112,28 @@ const CanvasPreview = forwardRef<CanvasHandle, CanvasPreviewProps>(({ side, shir
                 ctx.globalAlpha = 0.5;
                 ctx.drawImage(shirtImg, drawX, drawY, drawW, drawH);
                 ctx.restore();
-
             } else {
                 // Fallback Vector Shirt (if no image uploaded)
                 drawPlaceholderShirt(ctx, width, height, shirtColor);
             }
 
-            // 2. Draw Design
-            if (side.design.image) {
-                const designImg = await loadImage(side.design.image);
+            // Draw Design
+            if (designImg) {
                 drawLayer(ctx, designImg, side.design.position, width, height);
             }
 
-            // 3. Draw Label (only if exists)
-            if (side.label && side.label.image) {
-                const labelImg = await loadImage(side.label.image);
+            // Draw Label
+            if (labelImg && side.label) {
                 drawLayer(ctx, labelImg, side.label.position, width, height);
             }
         };
 
         loadAndDraw();
+
+        // Cleanup function: Set flag to false so pending async draws are cancelled
+        return () => {
+            isMounted = false;
+        };
 
     }, [side, shirtColor, width, height]);
 
@@ -108,10 +149,8 @@ const CanvasPreview = forwardRef<CanvasHandle, CanvasPreviewProps>(({ side, shir
     };
 
     const drawPlaceholderShirt = (ctx: CanvasRenderingContext2D, w: number, h: number, color: string) => {
-        const padding = w * 0.1;
-
         // Center translation
-        ctx.translate(w/2, h/2);
+        ctx.translate(w / 2, h / 2);
         ctx.fillStyle = color;
 
         // Draw a simple placeholder rect or text
@@ -150,6 +189,7 @@ const CanvasPreview = forwardRef<CanvasHandle, CanvasPreviewProps>(({ side, shir
         const finalWidth = img.width * scaleFactor;
         const finalHeight = img.height * scaleFactor;
 
+        // Using -finalWidth / 2 centers the image at the coordinates
         ctx.drawImage(img, -finalWidth / 2, -finalHeight / 2, finalWidth, finalHeight);
 
         ctx.restore();

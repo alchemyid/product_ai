@@ -43,11 +43,41 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ title, icon, layer, onUpdat
         });
     };
 
+    // Helper component for the small number inputs
+    const NumberInput = ({
+        value,
+        onChange,
+        min,
+        max,
+        step = 1,
+        unit = ""
+    }: {
+        value: number,
+        onChange: (val: number) => void,
+        min: number,
+        max: number,
+        step?: number,
+        unit?: string
+    }) => (
+        <div className="flex items-center bg-slate-900 border border-slate-600 rounded px-2 py-2 w-16 min-h-[28px] focus-within:border-indigo-500 transition-colors relative">
+            <input
+                type="number"
+                min={min}
+                max={max}
+                step={step}
+                value={value}
+                onChange={(e) => onChange(Number(e.target.value))}
+                className="w-full bg-transparent text-[10px] text-white text-right outline-none m-0 py-0.5"
+            />
+            {unit && <span className="text-[10px] text-slate-500 ml-1 flex-shrink-0">{unit}</span>}
+        </div>
+    );
+
     return (
         <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
             <div className="flex justify-between items-center mb-3">
                 <h2 className="text-sm font-semibold flex items-center gap-2 text-slate-200">
-                    {icon || <ImageIcon size={16} className="text-indigo-500"/>}
+                    {icon || <ImageIcon size={16} className="text-indigo-500" />}
                     {title}
                 </h2>
                 {layer.image && allowDelete && (
@@ -77,49 +107,69 @@ const ControlPanel: React.FC<ControlPanelProps> = ({ title, icon, layer, onUpdat
                 </label>
             ) : (
                 <div className="space-y-4 pt-2">
-                    {/* Position */}
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1"><Move size={10}/> Position</label>
-                        <div className="grid grid-cols-2 gap-2">
-                            <div>
-                                <input
-                                    type="range" min="0" max="100"
-                                    value={layer.position.x}
-                                    onChange={(e) => updatePos('x', Number(e.target.value))}
-                                    className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                                />
-                            </div>
-                            <div>
-                                <input
-                                    type="range" min="0" max="100"
-                                    value={layer.position.y}
-                                    onChange={(e) => updatePos('y', Number(e.target.value))}
-                                    className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                                />
-                            </div>
+                    {/* Position Section */}
+                    <div className="space-y-3">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                            <Move size={10} /> Position
+                        </label>
+                        
+                        {/* Stack X and Y vertically for better UI spacing */}
+                        <div className="flex items-center gap-3">
+                            <span className="text-[10px] text-slate-400 w-3 font-medium">X</span>
+                            <input
+                                type="range" min="0" max="100"
+                                value={layer.position.x}
+                                onChange={(e) => updatePos('x', Number(e.target.value))}
+                                className="flex-1 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            />
+                            <NumberInput value={layer.position.x} onChange={(v) => updatePos('x', v)} min={0} max={100} unit="%" />
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <span className="text-[10px] text-slate-400 w-3 font-medium">Y</span>
+                            <input
+                                type="range" min="0" max="100"
+                                value={layer.position.y}
+                                onChange={(e) => updatePos('y', Number(e.target.value))}
+                                className="flex-1 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            />
+                            <NumberInput value={layer.position.y} onChange={(v) => updatePos('y', v)} min={0} max={100} unit="%" />
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="h-px bg-slate-700/50 w-full my-2"></div>
+
+                    {/* Scale & Rotate Grid */}
+                    <div className="grid grid-cols-2 gap-4">
                         {/* Scale */}
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1"><ZoomIn size={10}/> Scale</label>
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                                    <ZoomIn size={10} /> Scale
+                                </label>
+                                <NumberInput value={layer.position.scale} onChange={(v) => updatePos('scale', v)} min={0.1} max={3} step={0.1} />
+                            </div>
                             <input
                                 type="range" min="0.1" max="3" step="0.1"
                                 value={layer.position.scale}
                                 onChange={(e) => updatePos('scale', Number(e.target.value))}
-                                className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                                className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                             />
                         </div>
 
                         {/* Rotation */}
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1"><RotateCw size={10}/> Rotate</label>
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                                    <RotateCw size={10} /> Rotate
+                                </label>
+                                <NumberInput value={layer.position.rotation} onChange={(v) => updatePos('rotation', v)} min={0} max={360} unit="°" />
+                            </div>
                             <input
                                 type="range" min="0" max="360"
                                 value={layer.position.rotation}
                                 onChange={(e) => updatePos('rotation', Number(e.target.value))}
-                                className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-green-500"
+                                className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-green-500"
                             />
                         </div>
                     </div>
