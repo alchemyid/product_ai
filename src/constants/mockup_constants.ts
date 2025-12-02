@@ -40,5 +40,57 @@ export const PHOTOGRAPHY_THEMES: ThemeOption[] = [
         id: 'luxury_editorial',
         name: 'Luxury Editorial',
         promptSuffix: 'High-fashion magazine editorial style, dramatic posing, architectural background, brutalist concrete, dramatic lighting.',
-    }
+    },
+
+    // --- Tambahan Profesional ---
+    {
+        id: 'minimal_product_showcase',
+        name: 'Minimal Product Showcase',
+        promptSuffix: 'Premium product photography, seamless light grey backdrop, soft diffused top light, 50mm macro lens, shadow-controlled, ultra-clean aesthetic.',
+    },
+    {
+        id: 'moody_shadow',
+        name: 'Moody Dramatic Shadow',
+        promptSuffix: 'Studio fashion photography with hard light and deep shadows, black background, crisp rim-light, 35mm lens, sculpted contrast for dramatic mood.',
+    },
+    {
+        id: 'warm_home_lifestyle',
+        name: 'Warm Home Lifestyle',
+        promptSuffix: 'Warm cozy lifestyle photography, soft morning sunlight through curtains, wooden interior, shallow depth of field, natural candid vibe.',
+    },
+    {
+        id: 'color_pop_pastel',
+        name: 'Color Pop Pastel',
+        promptSuffix: 'Vibrant pastel backdrop, colorful modern studio photography, bold shadows, playful composition, 35mm lens, high-energy editorial feel.',
+    },
+    {
+        id: 'black_gold_luxury',
+        name: 'Black & Gold Luxury',
+        promptSuffix: 'Ultra-premium luxury product photography, black velvet backdrop, warm gold edge lighting, glossy reflections, macro detail emphasis.',
+    },
+    {
+        id: 'vintage_film',
+        name: 'Vintage Film Aesthetic',
+        promptSuffix: 'Retro 90s film photography look, Kodak Portra color tones, grainy texture, soft ambient light, natural candid posing.',
+    },
+    {
+        id: 'sport_active',
+        name: 'Sport Active Motion',
+        promptSuffix: 'Dynamic sports photography, mid-motion freeze, outdoor track or gym setting, dramatic side lighting, energetic & powerful composition.',
+    },
+    {
+        id: 'flatlay_modern',
+        name: 'Flatlay Modern',
+        promptSuffix: 'Top-down flatlay photography, balanced composition, textured backdrop, soft shadows, color-coordinated props, crisp detail.',
+    },
+    {
+        id: 'monochrome_elegant',
+        name: 'Elegant Monochrome',
+        promptSuffix: 'High-end black and white fashion editorial, high contrast, clean backdrop, strong jawline lighting, timeless cinematic look.',
+    },
+    {
+        id: 'soft_dreamy',
+        name: 'Soft Dreamy Aesthetic',
+        promptSuffix: 'Dreamy soft-focus photography, pastel color grading, backlight glow, hazy highlights, cinematic feminine energy.',
+    },
 ];
