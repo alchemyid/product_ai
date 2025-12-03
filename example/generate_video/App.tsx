@@ -14,6 +14,7 @@ const App: React.FC = () => {
   const [selectedVoice, setSelectedVoice] = useState<VoiceName>('Kore');
   const [targetDuration, setTargetDuration] = useState<number>(8);
   const [productName, setProductName] = useState<string>('');
+  const [characterDescription, setCharacterDescription] = useState<string>('');
   const [productImages, setProductImages] = useState<UploadedImage[]>([]);
   const [modelImages, setModelImages] = useState<UploadedImage[]>([]);
   
@@ -42,7 +43,8 @@ const App: React.FC = () => {
         productName, 
         model, 
         targetDuration, 
-        allImages
+        allImages,
+        characterDescription // Pass description for prompt injection
       );
       
       setGeneratedScript(script);
@@ -65,9 +67,9 @@ const App: React.FC = () => {
     // We update scenes one by one as they complete
     const scenes = [...generatedScript];
     
-    // For VEO, we ideally want to pick the "best" image to start with.
-    // We'll use the first product image as the seed for the first scene.
-    const seedImage = productImages.length > 0 ? productImages[0].base64 : modelImages[0]?.base64;
+    // For facial consistency in VEO, prioritizing the MODEL image as the seed is better than the product
+    // The product can be described via text or overlay, but the face needs a reference.
+    const seedImage = modelImages.length > 0 ? modelImages[0].base64 : productImages[0]?.base64;
 
     try {
       for (let i = 0; i < scenes.length; i++) {
@@ -78,12 +80,6 @@ const App: React.FC = () => {
         setGeneratedScript([...scenes]); // Update UI
 
         try {
-          // NOTE: In a real "Extension" flow, we would pass the video from scenes[i-1]
-          // But implementing robust video-to-video extension requires passing valid video objects/resources
-          // which is tricky in this stateless client setup without persistent storage.
-          // For reliability in this demo, we generate each scene as an Image-to-Video using the seed image
-          // but with the specific prompt for that scene. 
-          
           // If the user selected Meta, we simulate or block.
           if (model === AIModel.META) {
               await new Promise(r => setTimeout(r, 2000)); // Fake delay
@@ -135,6 +131,7 @@ const App: React.FC = () => {
             selectedVoice={selectedVoice} setVoice={setSelectedVoice}
             targetDuration={targetDuration} setTargetDuration={setTargetDuration}
             productName={productName} setProductName={setProductName}
+            characterDescription={characterDescription} setCharacterDescription={setCharacterDescription}
             productImages={productImages} setProductImages={setProductImages}
             modelImages={modelImages} setModelImages={setModelImages}
           />

@@ -25,6 +25,33 @@ export const openKeySelection = async () => {
 };
 
 /**
+ * Analyzes an uploaded image to generate a consistent character description
+ */
+export const analyzeImageForDescription = async (base64Image: string): Promise<string> => {
+  const ai = getAIClient();
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              mimeType: 'image/png', // Assuming png/jpeg compatible
+              data: base64Image
+            }
+          },
+          { text: "Analyze this image and provide a concise physical description of the person suitable for a video generation prompt (Character Sheet). Focus on: Age, Ethnicity, Hair style/color, Clothing, and distinctive features. Output a single descriptive paragraph in English. Example: 'A young Indonesian woman, approx 25 years old, with shoulder-length black bob hair, wearing a white oversized t-shirt and denim shorts.'" }
+        ]
+      }
+    });
+    return response.text || "";
+  } catch (error) {
+    console.error("Image analysis failed", error);
+    throw error;
+  }
+};
+
+/**
  * Generates the Director's Script (Visual + Audio prompts)
  */
 export const generateDirectorScript = async (
@@ -32,7 +59,8 @@ export const generateDirectorScript = async (
   productName: string,
   model: AIModel,
   totalDuration: number,
-  images: string[] // Base64 strings of images for context
+  images: string[], // Base64 strings of images for context
+  characterDescription: string // NEW: Physical description
 ): Promise<ScriptScene[]> => {
   const ai = getAIClient();
   
@@ -59,7 +87,7 @@ export const generateDirectorScript = async (
     2. Segments: Generate exactly ${sceneCount} scenes, each approx ${timeStep} seconds long.
     
     VISUAL RULES (STRICT):
-    1. **ALWAYS USE A MODEL**: Never show the product floating in void. Show a human model (specify age, style, gender) using/wearing it.
+    1. **MODEL CONSISTENCY**: The human model in ALL scenes MUST match this description EXACTLY: "${characterDescription || 'Professional model suitable for the product'}". Repeat specific details (hair, clothes, age) in every single visual prompt to ensure consistency.
     2. **CINEMATIC DETAIL**:
        - LIGHTING: Specify (e.g., "Golden hour backlighting", "Soft diffused studio light", "Neon cyberpunk lighting").
        - COLOR: Specify (e.g., "Warm earth tones", "High contrast teal and orange", "Pastel aesthetic").
@@ -78,7 +106,7 @@ export const generateDirectorScript = async (
     - Return a JSON array.
     
     EXAMPLE OUTPUT FORMAT:
-    Visual: "Low angle, wide shot of a fit male model (20s) running on a rocky trail. Golden hour lighting creates lens flares. Camera tracks alongside him at high speed. The sandals [Product] kick up dust."
+    Visual: "Low angle, wide shot of [INSERT CHARACTER DESC] running on a rocky trail. Golden hour lighting creates lens flares. Camera tracks alongside her at high speed. The sandals [Product] kick up dust."
     Audio: "AUDIO: Energetic trap beat drops. SFX of heavy breathing and footsteps. VOICEOVER: Apapun medannya, langkah lo nggak boleh ragu."
   `;
 
@@ -89,7 +117,7 @@ export const generateDirectorScript = async (
       properties: {
         sequence: { type: Type.INTEGER },
         timeRange: { type: Type.STRING, description: "e.g. 0:00-0:08" },
-        visualPrompt: { type: Type.STRING, description: "VISUAL DESCRIPTION IN ENGLISH. Detailed cinematic prompt." },
+        visualPrompt: { type: Type.STRING, description: "VISUAL DESCRIPTION IN ENGLISH. Must include Model Description." },
         audioScript: { type: Type.STRING, description: "Format: 'AUDIO: [English Sound Description] VOICEOVER: [Bahasa Indonesia Script]'" },
         duration: { type: Type.INTEGER }
       },

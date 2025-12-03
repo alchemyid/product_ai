@@ -40,6 +40,7 @@ export interface AppState {
   selectedVoice: VoiceName;
   targetDuration: number;
   productName: string;
+  characterDescription: string; // NEW: Physical description for consistency
   productImages: UploadedImage[];
   modelImages: UploadedImage[];
   generatedScript: ScriptScene[];

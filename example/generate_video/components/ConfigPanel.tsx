@@ -1,7 +1,8 @@
 
-import React, { useCallback } from 'react';
+import React, { useState } from 'react';
 import { AIModel, SocialPlatform, UploadedImage, VoiceName } from '../types';
-import { Upload, X, ImageIcon, Clock, Layers, Smartphone, Mic2 } from 'lucide-react';
+import { Upload, X, ImageIcon, Clock, Layers, Smartphone, Mic2, User, Wand2, Loader2 } from 'lucide-react';
+import { analyzeImageForDescription } from '../services/geminiService';
 
 interface Props {
   platform: SocialPlatform;
@@ -14,6 +15,8 @@ interface Props {
   setTargetDuration: (d: number) => void;
   productName: string;
   setProductName: (n: string) => void;
+  characterDescription: string;
+  setCharacterDescription: (d: string) => void;
   productImages: UploadedImage[];
   setProductImages: (imgs: UploadedImage[]) => void;
   modelImages: UploadedImage[];
@@ -34,9 +37,11 @@ const ConfigPanel: React.FC<Props> = ({
   selectedVoice, setVoice,
   targetDuration, setTargetDuration,
   productName, setProductName,
+  characterDescription, setCharacterDescription,
   productImages, setProductImages,
   modelImages, setModelImages
 }) => {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // Dynamic Duration Options
   const getDurationOptions = () => {
@@ -80,6 +85,20 @@ const ConfigPanel: React.FC<Props> = ({
       setProductImages(productImages.filter(img => img.id !== id));
     } else {
       setModelImages(modelImages.filter(img => img.id !== id));
+    }
+  };
+
+  const handleAutoDetect = async () => {
+    if (modelImages.length === 0) return;
+    setIsAnalyzing(true);
+    try {
+        const desc = await analyzeImageForDescription(modelImages[0].base64);
+        setCharacterDescription(desc);
+    } catch (e) {
+        console.error(e);
+        alert("Failed to analyze image. Please try again.");
+    } finally {
+        setIsAnalyzing(false);
     }
   };
 
@@ -254,6 +273,39 @@ const ConfigPanel: React.FC<Props> = ({
              </div>
           </div>
         </div>
+      </div>
+
+      {/* Model Consistency Description */}
+      <div className="space-y-3 pt-2 border-t border-zinc-800">
+         <div className="flex justify-between items-center">
+            <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+                <User className="w-4 h-4 text-cyan-400" />
+                Model Character Description
+            </label>
+            <button
+                onClick={handleAutoDetect}
+                disabled={isAnalyzing || modelImages.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1 bg-cyan-900/30 text-cyan-400 text-xs rounded-full border border-cyan-800 hover:bg-cyan-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                title="Use Gemini Vision to analyze the first model photo"
+            >
+                {isAnalyzing ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                    <Wand2 className="w-3 h-3" />
+                )}
+                Auto-Detect from Image
+            </button>
+         </div>
+         <textarea
+            value={characterDescription}
+            onChange={(e) => setCharacterDescription(e.target.value)}
+            placeholder="e.g. Indonesian woman, 25 years old, short black bob hair, fair skin, wearing a white oversized t-shirt and denim shorts. Friendly expression."
+            className="w-full bg-zinc-950 border border-zinc-700 rounded-xl p-3 text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-sm min-h-[80px]"
+         />
+         <p className="text-[10px] text-zinc-500">
+            * This description will be injected into every video generation prompt to ensure the model looks the same across all scenes.
+            {modelImages.length === 0 && <span className="text-orange-500 ml-1">Upload a model photo to use Auto-Detect.</span>}
+         </p>
       </div>
 
     </div>
