@@ -5,7 +5,8 @@ import ProductApp from '@/apps/ProductApp';
 import ModelApp from '@/apps/ModelApp';
 import DesignApp from '@/apps/DesignApp';
 import VideoApp from '@/apps/VideoApp';
-import MockupApp from '@/apps/MockupApp'; // Add import
+import MockupApp from '@/apps/MockupApp'; 
+import SwapApp from '@/apps/SwapApp';
 import DashboardHomePage from './DashboardHomePage';
 import { MenuStructure } from '@/types';
 import { Construction } from 'lucide-react';
@@ -28,9 +29,9 @@ const menu: MenuStructure = [
         id: 'content-generator',
         title: 'Content Generator',
         children: [
-            { id: 'tshirt-mockup', title: 'T-shirt Mockup', description: 'Professional Mockup Generator' }, // Added description
+            { id: 'product-swap', title: 'Product Swap', description: 'Virtual Try-On & Product Replacement' },
+            { id: 'tshirt-mockup', title: 'T-shirt Mockup', description: 'Professional Mockup Generator' },
             { id: 'image-2-video', title: 'Image 2 Video (Veo)', description: 'Text to Video Generation' },
-            { id: 'ai-stylist', title: 'AI Stylist' },
         ],
     },
 ];
@@ -55,7 +56,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
             case 'model-generator': return <ModelApp />;
             case 'design-generator': return <DesignApp />;
             case 'image-2-video': return <VideoApp />;
-            case 'tshirt-mockup': return <MockupApp />; // Add route
+            case 'tshirt-mockup': return <MockupApp />; 
+            case 'product-swap': return <SwapApp />;
             default:
                 const item = menu.flatMap(m => m.children || []).find(c => c.id === activeItem);
                 return <Placeholder title={item?.title || 'Coming Soon'} />;

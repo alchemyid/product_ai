@@ -190,6 +190,28 @@ export interface MockupAppState {
     generatedImages: string[]; // URLs of generated images
 }
 
+// ====== SWAP APP TYPES ======
+export interface UploadedImage {
+    file: File;
+    previewUrl: string;
+    base64: string;
+    mimeType: string;
+}
+
+export interface SwapSettings {
+    themeId: string | null; // Selected environment theme
+    customPrompt: string;
+    selectedAngles: string[]; // List of full angle strings to generate
+}
+
+export interface SwapGeneratedResult {
+    imageUrl: string;
+    viewLabel: string; // Short label for UI
+    fullPromptAngle: string; // Full angle prompt used
+    loading: boolean;
+    error?: string;
+}
+
 export interface ThemeOption {
     id: string;
     name: string;

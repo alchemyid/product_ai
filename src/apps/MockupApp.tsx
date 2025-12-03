@@ -160,7 +160,7 @@ const MockupApp: React.FC = () => {
             <aside className="w-[380px] bg-slate-900 border-r border-slate-800 p-5 overflow-y-auto flex flex-col gap-6 z-10">
 
                 <div>
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-1">
+                    <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                         <Camera size={16} className="text-indigo-400" /> Model Studio
                     </h3>
                     <p className="text-[10px] text-slate-500 mb-4">Configure your product and model settings.</p>
@@ -349,7 +349,7 @@ const MockupApp: React.FC = () => {
                 </div>
 
                 {/* Canvas Container */}
-                <div className="w-full max-w-[1000px] flex-1 min-h-[500px] flex flex-col">
+                <div className="w-full flex-1 max-h-[700px] flex flex-col">
                     <div
                         className="relative w-full aspect-square bg-[#0f111a] rounded-2xl border border-slate-800 shadow-2xl overflow-hidden group"
                         style={{ backgroundColor: previewBackgroundColor !== '#0f111a' ? previewBackgroundColor : undefined }}
