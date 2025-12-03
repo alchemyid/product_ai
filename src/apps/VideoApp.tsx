@@ -13,6 +13,7 @@ const VideoApp: React.FC = () => {
   const [selectedVoice, setSelectedVoice] = useState<VoiceName>('Kore');
   const [targetDuration, setTargetDuration] = useState<number>(8);
   const [productName, setProductName] = useState<string>('');
+  const [characterDescription, setCharacterDescription] = useState<string>('');
   
   // Assets
   const [productImages, setProductImages] = useState<VideoUploadedImage[]>([]);
@@ -43,7 +44,8 @@ const VideoApp: React.FC = () => {
         productName, 
         model, 
         targetDuration, 
-        allImages
+        allImages,
+        characterDescription // Pass physical description
       );
       
       setGeneratedScript(script);
@@ -63,8 +65,8 @@ const VideoApp: React.FC = () => {
     setIsGeneratingVideo(true);
     
     const scenes = [...generatedScript];
-    // Use first product image as seed/reference
-    const seedImage = productImages.length > 0 ? productImages[0].base64 : modelImages[0]?.base64;
+    // Use first model image as seed if available (better for face consistency), otherwise product
+    const seedImage = modelImages.length > 0 ? modelImages[0].base64 : productImages[0]?.base64;
 
     try {
       for (let i = 0; i < scenes.length; i++) {
@@ -133,6 +135,7 @@ const VideoApp: React.FC = () => {
                     selectedVoice={selectedVoice} setVoice={setSelectedVoice}
                     targetDuration={targetDuration} setTargetDuration={setTargetDuration}
                     productName={productName} setProductName={setProductName}
+                    characterDescription={characterDescription} setCharacterDescription={setCharacterDescription}
                     productImages={productImages} setProductImages={setProductImages}
                     modelImages={modelImages} setModelImages={setModelImages}
                 />

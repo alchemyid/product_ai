@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AIModel, SocialPlatform, VideoUploadedImage, VoiceName } from '@/types';
-import { Upload, X, ImageIcon, Clock, Layers, Smartphone, Mic2 } from 'lucide-react';
+import { Upload, X, ImageIcon, Clock, Layers, Smartphone, Mic2, User, Wand2, Loader2 } from 'lucide-react';
+import geminiService from '@/services/gemini';
 
 interface Props {
   platform: SocialPlatform;
@@ -13,6 +14,8 @@ interface Props {
   setTargetDuration: (d: number) => void;
   productName: string;
   setProductName: (n: string) => void;
+  characterDescription: string;
+  setCharacterDescription: (d: string) => void;
   productImages: VideoUploadedImage[];
   setProductImages: (imgs: VideoUploadedImage[]) => void;
   modelImages: VideoUploadedImage[];
@@ -33,9 +36,11 @@ export const ConfigPanel: React.FC<Props> = ({
   selectedVoice, setVoice,
   targetDuration, setTargetDuration,
   productName, setProductName,
+  characterDescription, setCharacterDescription,
   productImages, setProductImages,
   modelImages, setModelImages
 }) => {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const getDurationOptions = () => {
     if (model === AIModel.VEO3) return [8, 16, 24, 32, 40];
@@ -76,11 +81,23 @@ export const ConfigPanel: React.FC<Props> = ({
     else setModelImages(modelImages.filter(img => img.id !== id));
   };
 
+  const handleAutoDetect = async () => {
+    if (modelImages.length === 0) return;
+    setIsAnalyzing(true);
+    try {
+        const desc = await geminiService.analyzeImageForDescription(modelImages[0].base64);
+        setCharacterDescription(desc);
+    } catch (e) {
+        console.error(e);
+        alert("Failed to analyze image. Please try again.");
+    } finally {
+        setIsAnalyzing(false);
+    }
+  };
+
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl space-y-8">
-      {/* Settings Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Platform */}
         <div className="space-y-3">
           <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
             <Smartphone className="w-4 h-4 text-purple-400" /> Target Platform
@@ -100,7 +117,6 @@ export const ConfigPanel: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Model */}
         <div className="space-y-3">
           <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
             <Layers className="w-4 h-4 text-blue-400" /> AI Model
@@ -122,7 +138,6 @@ export const ConfigPanel: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Voice */}
       <div className="space-y-3">
          <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
             <Mic2 className="w-4 h-4 text-red-400" /> Voiceover Persona
@@ -143,7 +158,6 @@ export const ConfigPanel: React.FC<Props> = ({
          </div>
       </div>
 
-      {/* Product Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
          <div className="space-y-3">
             <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
@@ -177,7 +191,6 @@ export const ConfigPanel: React.FC<Props> = ({
          </div>
       </div>
 
-      {/* Images */}
       <div className="space-y-4">
         <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
           <ImageIcon className="w-4 h-4 text-pink-400" /> Reference Imagery
@@ -214,6 +227,38 @@ export const ConfigPanel: React.FC<Props> = ({
              </div>
           </div>
         </div>
+      </div>
+
+      {/* Model Consistency Description */}
+      <div className="space-y-3 pt-2 border-t border-slate-700">
+         <div className="flex justify-between items-center">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                <User className="w-4 h-4 text-cyan-400" />
+                Model Character Description
+            </label>
+            <button
+                onClick={handleAutoDetect}
+                disabled={isAnalyzing || modelImages.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1 bg-cyan-900/30 text-cyan-400 text-xs rounded-full border border-cyan-800 hover:bg-cyan-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                title="Use Gemini Vision to analyze the first model photo"
+            >
+                {isAnalyzing ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                    <Wand2 className="w-3 h-3" />
+                )}
+                Auto-Detect
+            </button>
+         </div>
+         <textarea
+            value={characterDescription}
+            onChange={(e) => setCharacterDescription(e.target.value)}
+            placeholder="e.g. Indonesian woman, 25 years old, short black bob hair, fair skin, wearing a white oversized t-shirt and denim shorts. Friendly expression."
+            className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-sm min-h-[80px]"
+         />
+         <p className="text-[10px] text-slate-500">
+            * This description will be injected into every video generation prompt to ensure the model looks the same across all scenes.
+         </p>
       </div>
     </div>
   );

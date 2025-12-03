@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, Home, ShoppingBag, Bot, Palette, FileText, BarChart2 } from 'lucide-react';
+import { ChevronDown, Home, ShoppingBag, Bot, Palette, FileText, BarChart2, ArrowLeftRight, Shirt, Video } from 'lucide-react';
 import { MenuItem, MenuStructure } from '@/types';
 
 interface SidebarProps {
@@ -16,6 +16,9 @@ const iconMap: { [key: string]: React.ReactNode } = {
   'fashion-generator': <ShoppingBag className="w-4 h-4" />,
   'design-generator': <Palette className="w-4 h-4" />,
   'model-generator': <Bot className="w-4 h-4" />,
+  'product-swap': <ArrowLeftRight className="w-4 h-4" />,
+  'tshirt-mockup': <Shirt className="w-4 h-4" />,
+  'image-2-video': <Video className="w-4 h-4" />,
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ menu, activeItem, setActiveItem }) => {

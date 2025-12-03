@@ -1,4 +1,4 @@
-import { GoogleGenAI, HarmCategory, HarmBlockThreshold, GenerativeModel, Type, Modality } from "@google/genai";
+import { GoogleGenAI, GenerativeModel, Type, Modality } from "@google/genai";
 import {
     ModelGenerationConfig,
     DesignGenerationParams,
@@ -372,6 +372,32 @@ class GeminiService {
     // ==========================================
     //  NEW: AI DIRECTOR VIDEO SUITE
     // ==========================================
+    /**
+     * Analyzes an uploaded image to generate a consistent character description
+     */
+    public analyzeImageForDescription = async (base64Image: string): Promise<string> => {
+        const cleanBase64 = this.cleanBase64(base64Image);
+        try {
+            const response = await this.genAI.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: {
+                parts: [
+                {
+                    inlineData: {
+                    mimeType: 'image/png', 
+                    data: cleanBase64
+                    }
+                },
+                { text: "Analyze this image and provide a concise physical description of the person suitable for a video generation prompt (Character Sheet). Focus on: Age, Ethnicity, Hair style/color, Clothing, and distinctive features. Output a single descriptive paragraph in English. Example: 'A young Indonesian woman, approx 25 years old, with shoulder-length black bob hair, wearing a white oversized t-shirt and denim shorts.'" }
+                ]
+            }
+            });
+            return response.text || "";
+        } catch (error) {
+            console.error("Image analysis failed", error);
+            throw error;
+        }
+    };
 
     // 1. Script Generation
     public generateDirectorScript = async (
@@ -379,13 +405,13 @@ class GeminiService {
         productName: string,
         model: AIModel,
         totalDuration: number,
-        imagesBase64: string[]
+        imagesBase64: string[],
+        characterDescription: string
     ): Promise<ScriptScene[]> => {
         const isVeo = model === AIModel.VEO3;
         const timeStep = isVeo ? 8 : 5;
         const sceneCount = Math.ceil(totalDuration / timeStep);
 
-        // INSTRUCTION: MIXED LANGUAGE (English Visuals + Indo VO)
         const systemInstruction = `
             You are a World-Class Commercial Director & Cinematographer (DoP).
             Task: Create a high-end cinematic video script for a product named "${productName}" tailored for ${platform}.
@@ -401,14 +427,14 @@ class GeminiService {
             2. Segments: Generate exactly ${sceneCount} scenes, each approx ${timeStep} seconds long.
             
             VISUAL RULES (STRICT):
-            1. **ALWAYS USE A MODEL**: Never show the product floating in void. Show a human model (specify age, style, gender) using/wearing it.
+            1. **MODEL CONSISTENCY**: The human model in ALL scenes MUST match this description EXACTLY: "${characterDescription || 'Professional model suitable for the product'}". Repeat specific details (hair, clothes, age) in every single visual prompt to ensure consistency.
             2. **CINEMATIC DETAIL**:
-            - LIGHTING: Specify (e.g., "Golden hour backlighting", "Soft diffused studio light", "Neon cyberpunk lighting").
-            - COLOR: Specify (e.g., "Warm earth tones", "High contrast teal and orange", "Pastel aesthetic").
-            - TEXTURE: Describe surface details (e.g., "Sweat on skin", "Rough fabric texture", "Glistening water droplets").
+               - LIGHTING: Specify (e.g., "Golden hour backlighting", "Soft diffused studio light", "Neon cyberpunk lighting").
+               - COLOR: Specify (e.g., "Warm earth tones", "High contrast teal and orange", "Pastel aesthetic").
+               - TEXTURE: Describe surface details (e.g., "Sweat on skin", "Rough fabric texture", "Glistening water droplets").
             3. **DYNAMIC CAMERA**:
-            - NO STATIC SHOTS.
-            - Use keywords: "Slow Dolly In", "Fast Pan Right", "Truck Left", "Low Angle Tracking", "Dutch Angle", "Speed Ramp (Slow-mo to Fast)".
+               - NO STATIC SHOTS.
+               - Use keywords: "Slow Dolly In", "Fast Pan Right", "Truck Left", "Low Angle Tracking", "Dutch Angle", "Speed Ramp (Slow-mo to Fast)".
             
             CONTINUITY RULES:
             - Scene 2+ MUST visually connect to the previous scene (e.g., "Match cut from previous scene", "Model continues walking").
@@ -420,7 +446,7 @@ class GeminiService {
             - Return a JSON array.
             
             EXAMPLE OUTPUT FORMAT:
-            Visual: "Low angle, wide shot of a fit male model (20s) running on a rocky trail. Golden hour lighting creates lens flares. Camera tracks alongside him at high speed. The sandals [Product] kick up dust."
+            Visual: "Low angle, wide shot of [INSERT CHARACTER DESC] running on a rocky trail. Golden hour lighting creates lens flares. Camera tracks alongside her at high speed. The sandals [Product] kick up dust."
             Audio: "AUDIO: Energetic trap beat drops. SFX of heavy breathing and footsteps. VOICEOVER: Apapun medannya, langkah lo nggak boleh ragu."
         `;
 
@@ -430,9 +456,9 @@ class GeminiService {
                 type: Type.OBJECT,
                 properties: {
                     sequence: { type: Type.INTEGER },
-                    timeRange: { type: Type.STRING },
-                    visualPrompt: { type: Type.STRING },
-                    audioScript: { type: Type.STRING },
+                    timeRange: { type: Type.STRING, description: "e.g. 0:00-0:08" },
+                    visualPrompt: { type: Type.STRING, description: "VISUAL DESCRIPTION IN ENGLISH. Must include Model Description." },
+                    audioScript: { type: Type.STRING, description: "Format: 'AUDIO: [English Sound Description] VOICEOVER: [Bahasa Indonesia Script]'" },
                     duration: { type: Type.INTEGER }
                 },
                 required: ["sequence", "timeRange", "visualPrompt", "audioScript", "duration"]
@@ -440,7 +466,7 @@ class GeminiService {
         };
 
         const imageParts = imagesBase64.slice(0, 3).map(b64 => ({
-            inlineData: { mimeType: 'image/png', data: b64 }
+            inlineData: { mimeType: 'image/png', data: this.cleanBase64(b64) }
         }));
 
         try {
