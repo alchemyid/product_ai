@@ -1,0 +1,5 @@
+{
+  "name": "MarketFlow AI Director",
+  "description": "An AI-powered video production assistant for marketing teams. Generates director scripts and videos tailored for TikTok, Instagram, and more using Google VEO.",
+  "requestFramePermissions": []
+}
