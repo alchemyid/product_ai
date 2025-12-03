@@ -6,6 +6,7 @@ const MODEL_NAME = 'gemini-3-pro-image-preview';
 export const generateProductSwap = async (
   productImages: UploadedImage[],
   referenceFaceImages: UploadedImage[], // Can be empty
+  referenceModelImages: UploadedImage[], // Can be empty
   viewAnglePrompt: string, // Full string e.g., "Front view - A direct..."
   themePrompt: string, 
   customInstructions: string
@@ -31,66 +32,101 @@ export const generateProductSwap = async (
       }
     }));
 
-    // 3. Construct the Prompt
+    // 3. Prepare Reference Model Parts (if any)
+    const modelParts = referenceModelImages.map((img) => ({
+      inlineData: {
+        data: img.base64,
+        mimeType: img.mimeType
+      }
+    }));
+
+    // 4. Construct the Prompt
     let prompt = `
       Professional Fashion and Commercial Product Photography Task.
       
       ROLE: You are a world-class commercial photographer and art director.
       
-      INPUTS:
-      1. REFERENCE PRODUCT (${productImages.length} images): Analyze these closely. Texture, material, logos, shape. This object MUST appear in the final image with 100% fidelity.
+      INPUTS PROVIDED:
+      1. REFERENCE PRODUCT (${productImages.length} images): This item MUST appear in the final image. Preserve details, logos, and texture.
     `;
 
     if (faceParts.length > 0) {
       prompt += `
-      2. REFERENCE FACE (${referenceFaceImages.length} images): Use these images as the strict reference for the model's facial identity. The final image must look like this person.
+      2. REFERENCE FACE (${referenceFaceImages.length} images): Use this person's facial identity.
       `;
-    } else {
+    }
+
+    if (modelParts.length > 0) {
       prompt += `
-      2. REFERENCE FACE: None provided. You must GENERATE a photorealistic human model suitable for this product type. Ensure the face is consistent, attractive, and high-fidelity.
+      3. REFERENCE MODEL BODY (${modelParts.length} images): Use this image as the BASE for pose and body type.
       `;
     }
 
     prompt += `
       OBJECTIVE:
-      Generate a photorealistic, high-resolution marketing image of a model wearing/using the REFERENCE PRODUCT.
-      
-      COMPOSITION & ANGLE:
-      - ${viewAnglePrompt}
-      - The composition must be professional and balanced.
-      
-      ENVIRONMENT & MOOD:
-      - ${themePrompt || "Clean, high-end commercial studio setting. Neutral background that highlights the product."}
-      
-      CRITICAL INSTRUCTIONS:
-      - The REFERENCE PRODUCT must be worn/held naturally by the model.
-      - Lighting on the product must match the specified environment.
+      Generate a photorealistic marketing image.
     `;
 
-    if (faceParts.length > 0) {
-      prompt += `- PRESERVE THE IDENTITY of the REFERENCE FACE provided. Match skin tone and facial features exactly.`;
+    // --- LOGIC FOR COMBINATIONS ---
+    if (modelParts.length > 0 && faceParts.length > 0) {
+      prompt += `
+      TASK: SWAP & DRESS.
+      1. Take the POSE and BODY from the REFERENCE MODEL BODY images.
+      2. Replace the face with the REFERENCE FACE identity (seamless face swap).
+      3. Dress the model in the REFERENCE PRODUCT.
+      `;
+    } else if (modelParts.length > 0) {
+      prompt += `
+      TASK: VIRTUAL TRY-ON.
+      1. Use the REFERENCE MODEL BODY image as the base.
+      2. Dress the model in the REFERENCE PRODUCT.
+      3. Keep the original face/identity of the model image (unless it is a mannequin, then generate a realistic face).
+      `;
+    } else if (faceParts.length > 0) {
+      prompt += `
+      TASK: GENERATE MODEL WITH SPECIFIC FACE.
+      1. Generate a new human body and pose based on the requested ANGLE.
+      2. Use the REFERENCE FACE for the identity.
+      3. Dress the generated model in the REFERENCE PRODUCT.
+      `;
     } else {
-      prompt += `- Generate a diverse, professional model fitting for the brand aesthetic.`;
+      prompt += `
+      TASK: GENERATE FULL MODEL.
+      1. Generate a photorealistic human model (consistent face across shots if multiple generated).
+      2. Dress the model in the REFERENCE PRODUCT.
+      `;
     }
+    // -----------------------------
+
+    prompt += `
+      DETAILS:
+      - ANGLE/COMPOSITION: ${viewAnglePrompt}
+      - ENVIRONMENT: ${themePrompt || "Clean professional studio."}
+      
+      CRITICAL:
+      - The product must look real and interact naturally with the body.
+      - Lighting must be cohesive.
+    `;
 
     // Handle Custom Instructions
     if (customInstructions && customInstructions.trim().length > 0) {
       prompt += `
-      
       USER OVERRIDES (Highest Priority):
       - ${customInstructions}
       `;
     }
 
-    // 4. Construct API Payload
-    // Parts order: Product Images -> Face Images -> Text Prompt
+    // 5. Construct API Payload
+    // Parts order matters: Product -> Face -> Model -> Text
+    // This gives context to "Input 1", "Input 2" etc in the prompt text.
     const allParts = [
       ...productParts,
       ...faceParts,
+      ...modelParts,
       { text: prompt }
     ];
 
-    // 5. Call API
+    // 6. Call API
     const response = await ai.models.generateContent({
       model: MODEL_NAME,
       contents: {
@@ -104,7 +140,7 @@ export const generateProductSwap = async (
       }
     });
 
-    // 6. Extract Image
+    // 7. Extract Image
     if (response.candidates && response.candidates[0].content.parts) {
       for (const part of response.candidates[0].content.parts) {
         if (part.inlineData) {

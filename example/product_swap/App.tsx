@@ -4,7 +4,7 @@ import { ImageUploader } from './components/ImageUploader';
 import { SettingsPanel, PHOTOGRAPHY_THEMES } from './components/SettingsPanel';
 import { UploadedImage, SwapSettings, GeneratedResult } from './types';
 import { generateProductSwap } from './services/geminiService';
-import { Wand2, Loader2, Download, RefreshCw, Camera, Lock, ExternalLink, ArrowRight, User } from 'lucide-react';
+import { Wand2, Loader2, Download, RefreshCw, Camera, Lock, ExternalLink, ArrowRight, User, UserCheck } from 'lucide-react';
 
 const App: React.FC = () => {
   // State
@@ -13,6 +13,7 @@ const App: React.FC = () => {
   
   const [productImages, setProductImages] = useState<UploadedImage[]>([]);
   const [referenceFaceImages, setReferenceFaceImages] = useState<UploadedImage[]>([]);
+  const [referenceModelImages, setReferenceModelImages] = useState<UploadedImage[]>([]);
   
   const [settings, setSettings] = useState<SwapSettings>({
     themeId: null,
@@ -79,12 +80,21 @@ const App: React.FC = () => {
     setReferenceFaceImages(prev => [...prev, ...newImages].slice(0, 3)); // Limit to 3 faces
   };
 
+  const handleModelUpload = async (files: FileList) => {
+    const newImages = await Promise.all(Array.from(files).map(handleProcessFile));
+    setReferenceModelImages(prev => [...prev, ...newImages].slice(0, 1)); // Limit to 1 model base
+  };
+
   const handleRemoveProduct = (index: number) => {
     setProductImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleRemoveFace = (index: number) => {
     setReferenceFaceImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveModel = (index: number) => {
+    setReferenceModelImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleGenerate = async () => {
@@ -119,6 +129,7 @@ const App: React.FC = () => {
         const imageUrl = await generateProductSwap(
           productImages,
           referenceFaceImages,
+          referenceModelImages,
           angleStr,
           themePrompt,
           settings.customPrompt
@@ -232,13 +243,24 @@ const App: React.FC = () => {
             
             <ImageUploader 
               label="Reference Face (Optional)"
-              description="Upload 1-3 photos of a specific face to maintain identity. Leave empty for AI-generated model."
+              description="Upload 1-3 photos of a specific face to maintain identity."
               images={referenceFaceImages}
               onUpload={handleFaceUpload}
               onRemove={handleRemoveFace}
               multiple={true}
               maxFiles={3}
               icon={<User className="w-5 h-5" />}
+            />
+
+            <ImageUploader 
+              label="Reference Model / Mannequin (Optional)"
+              description="Upload a full body shot or mannequin to define the pose/body. AI will swap the face if a Face Reference is provided above."
+              images={referenceModelImages}
+              onUpload={handleModelUpload}
+              onRemove={handleRemoveModel}
+              multiple={false}
+              maxFiles={1}
+              icon={<UserCheck className="w-5 h-5" />}
             />
           </div>
 
