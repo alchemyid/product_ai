@@ -1,4 +1,4 @@
-import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold, GenerativeModel, Type, Modality } from "@google/genai";
 import {
     ModelGenerationConfig,
     DesignGenerationParams,
@@ -9,8 +9,13 @@ import {
     Gender,
     BodyPartType,
     GenerateVideoParams,
-    ThemeOption
+    ThemeOption,
+    UploadedImage,
+    SocialPlatform,
+    AIModel,
+    ScriptScene
 } from "@/types";
+
 
 // Access key via import.meta.env for Vite
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
@@ -362,6 +367,229 @@ class GeminiService {
         }
 
         throw new Error("Video generation failed or returned no URI.");
+    }
+
+    // ==========================================
+    //  NEW: AI DIRECTOR VIDEO SUITE
+    // ==========================================
+
+    // 1. Script Generation
+    public generateDirectorScript = async (
+        platform: SocialPlatform,
+        productName: string,
+        model: AIModel,
+        totalDuration: number,
+        imagesBase64: string[]
+    ): Promise<ScriptScene[]> => {
+        const isVeo = model === AIModel.VEO3;
+        const timeStep = isVeo ? 8 : 5;
+        const sceneCount = Math.ceil(totalDuration / timeStep);
+
+        // INSTRUCTION: MIXED LANGUAGE (English Visuals + Indo VO)
+        const systemInstruction = `
+            You are a World-Class Commercial Director & Cinematographer (DoP).
+            Task: Create a high-end cinematic video script for a product named "${productName}" tailored for ${platform}.
+
+            *** LANGUAGE RULES (CRITICAL) ***
+            1. VISUAL PROMPTS: MUST be in ENGLISH. Use professional cinematographic terminology.
+            2. CAMERA MOVEMENT: MUST be in ENGLISH.
+            3. AUDIO/SFX DESCRIPTION: MUST be in ENGLISH.
+            4. VOICEOVER (Spoken Word): MUST be in BAHASA INDONESIA (Indonesian).
+
+            TECHNICAL RULES:
+            1. Total video duration: ${totalDuration} seconds.
+            2. Segments: Generate exactly ${sceneCount} scenes, each approx ${timeStep} seconds long.
+            
+            VISUAL RULES (STRICT):
+            1. **ALWAYS USE A MODEL**: Never show the product floating in void. Show a human model (specify age, style, gender) using/wearing it.
+            2. **CINEMATIC DETAIL**:
+            - LIGHTING: Specify (e.g., "Golden hour backlighting", "Soft diffused studio light", "Neon cyberpunk lighting").
+            - COLOR: Specify (e.g., "Warm earth tones", "High contrast teal and orange", "Pastel aesthetic").
+            - TEXTURE: Describe surface details (e.g., "Sweat on skin", "Rough fabric texture", "Glistening water droplets").
+            3. **DYNAMIC CAMERA**:
+            - NO STATIC SHOTS.
+            - Use keywords: "Slow Dolly In", "Fast Pan Right", "Truck Left", "Low Angle Tracking", "Dutch Angle", "Speed Ramp (Slow-mo to Fast)".
+            
+            CONTINUITY RULES:
+            - Scene 2+ MUST visually connect to the previous scene (e.g., "Match cut from previous scene", "Model continues walking").
+
+            BRANDING:
+            - FINAL SCENE (Scene ${sceneCount}) VISUAL MUST include: "Text Overlay: [${productName}]" or "Logo Animation".
+
+            FORMATTING:
+            - Return a JSON array.
+            
+            EXAMPLE OUTPUT FORMAT:
+            Visual: "Low angle, wide shot of a fit male model (20s) running on a rocky trail. Golden hour lighting creates lens flares. Camera tracks alongside him at high speed. The sandals [Product] kick up dust."
+            Audio: "AUDIO: Energetic trap beat drops. SFX of heavy breathing and footsteps. VOICEOVER: Apapun medannya, langkah lo nggak boleh ragu."
+        `;
+
+        const responseSchema = {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    sequence: { type: Type.INTEGER },
+                    timeRange: { type: Type.STRING },
+                    visualPrompt: { type: Type.STRING },
+                    audioScript: { type: Type.STRING },
+                    duration: { type: Type.INTEGER }
+                },
+                required: ["sequence", "timeRange", "visualPrompt", "audioScript", "duration"]
+            }
+        };
+
+        const imageParts = imagesBase64.slice(0, 3).map(b64 => ({
+            inlineData: { mimeType: 'image/png', data: b64 }
+        }));
+
+        try {
+            const response = await this.genAI.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: {
+                    role: 'user',
+                    parts: [
+                        ...imageParts,
+                        { text: `Create a cinematic script for product: ${productName}. Platform: ${platform}. Total Duration: ${totalDuration}s (${sceneCount} scenes).` }
+                    ]
+                },
+                config: {
+                    systemInstruction,
+                    responseMimeType: "application/json",
+                    responseSchema: responseSchema,
+                }
+            });
+
+            const text = response.text;
+            if (!text) throw new Error("No script generated");
+
+            const parsed = JSON.parse(text);
+            return parsed.map((item: any) => ({
+                ...item,
+                id: crypto.randomUUID(),
+                status: 'pending'
+            }));
+
+        } catch (error) {
+            console.error("Script Generation Error:", error);
+            throw error;
+        }
+    }
+
+    // 2. TTS Generation
+    public generateSpeech = async (text: string, voiceName: string = 'Kore'): Promise<string> => {
+        const match = text.match(/VOICEOVER:\s*([\s\S]*?)(?=(?:AUDIO:)|$)/i);
+        let cleanText = match ? match[1].trim() : text.replace(/^(VOICEOVER|AUDIO):/i, '').trim();
+        cleanText = cleanText.replace(/AUDIO:[\s\S]*/i, '').trim();
+
+        if (!cleanText || cleanText === '-') throw new Error("No text to speak");
+
+        try {
+            const response = await this.genAI.models.generateContent({
+                model: "gemini-2.5-flash-preview-tts",
+                contents: { parts: [{ text: cleanText }] },
+                config: {
+                    responseModalities: [Modality.AUDIO],
+                    speechConfig: {
+                        voiceConfig: { prebuiltVoiceConfig: { voiceName } },
+                    },
+                },
+            });
+
+            const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+            if (!base64Audio) throw new Error("No audio data generated");
+
+            return URL.createObjectURL(this.base64PcmToWavBlob(base64Audio));
+        } catch (error) {
+            console.error("TTS Error:", error);
+            throw error;
+        }
+    }
+
+    // 3. VEO Video Generation
+    public generateVeoVideoFromScript = async (prompt: string, inputImageBase64?: string): Promise<string> => {
+        const modelName = 'veo-3.1-fast-generate-preview'; 
+
+        let cleanVisualPrompt = prompt
+            .replace(/VISUAL:/gi, '')
+            .replace(/AUDIO:[\s\S]*/gi, '')
+            .replace(/VOICEOVER:[\s\S]*/gi, '')
+            .trim();
+
+        if (!cleanVisualPrompt.toLowerCase().includes('cinematic')) {
+            cleanVisualPrompt = "Cinematic 4k shot. " + cleanVisualPrompt;
+        }
+
+        const request: any = {
+            model: modelName,
+            prompt: cleanVisualPrompt,
+            config: {
+                numberOfVideos: 1,
+                resolution: '720p',
+                aspectRatio: '9:16', 
+            }
+        };
+
+        if (inputImageBase64) {
+            request.image = {
+                imageBytes: inputImageBase64,
+                mimeType: 'image/png' 
+            };
+        }
+
+        try {
+            let operation = await this.genAI.models.generateVideos(request);
+            
+            while (!operation.done) {
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                operation = await this.genAI.operations.getVideosOperation({ operation });
+            }
+
+            const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
+            if (!videoUri) throw new Error("Video generation completed but no URI returned.");
+
+            return `${videoUri}&key=${API_KEY}`;
+        } catch (error) {
+            console.error("Video Generation Error:", error);
+            throw error;
+        }
+    }
+
+    // --- HELPER: PCM to WAV ---
+    private base64PcmToWavBlob(base64Pcm: string): Blob {
+        const binaryString = atob(base64Pcm);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        
+        const numChannels = 1;
+        const sampleRate = 24000;
+        const bitsPerSample = 16; 
+        
+        const wavHeader = new ArrayBuffer(44);
+        const view = new DataView(wavHeader);
+        
+        const writeString = (view: DataView, offset: number, string: string) => {
+            for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
+        };
+        
+        writeString(view, 0, 'RIFF');
+        view.setUint32(4, 36 + len, true);
+        writeString(view, 8, 'WAVE');
+        writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true); 
+        view.setUint16(20, 1, true); 
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * numChannels * (bitsPerSample / 8), true);
+        view.setUint16(32, numChannels * (bitsPerSample / 8), true);
+        view.setUint16(34, bitsPerSample, true);
+        writeString(view, 36, 'data');
+        view.setUint32(40, len, true);
+        
+        return new Blob([wavHeader, bytes], { type: 'audio/wav' });
     }
 
     // --- NEW MOCKUP METHOD ---
